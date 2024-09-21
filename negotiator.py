@@ -13,21 +13,21 @@ generator = pipeline('text-generation', model='distilgpt2')
 # Initialize sentiment analysis pipeline
 sentiment_analyzer = pipeline('sentiment-analysis')
 
-# Sample product data for negotiation with updated prices
+
 products = {
-    "laptop": {"price": 50000, "min_price": 45000},      # Original: 50000, Min: 45000
-    "smartphone": {"price": 30000, "min_price": 25000},  # Original: 30000, Min: 25000
-    "headphones": {"price": 3000, "min_price": 2500},    # Original: 6000, Min: 5000
-    "tablet": {"price": 25000, "min_price": 12000},      # Original: 25000, Min: 22000
+    "laptop": {"price": 50000, "min_price": 45000},      
+    "smartphone": {"price": 30000, "min_price": 25000},  
+    "headphones": {"price": 3000, "min_price": 2500},    
+    "tablet": {"price": 25000, "min_price": 12000},     
 }
 
-# Request body model
+
 class NegotiationRequest(BaseModel):
     product: str
     offer_statement: str
     chat_history: str
 
-# Function to analyze sentiment
+
 def analyze_sentiment(message):
     analysis = TextBlob(message)
     return analysis.sentiment.polarity
@@ -40,7 +40,7 @@ You are a shopkeeper negotiating the price of a {product_name}. The customer has
     response = generator(prompt, max_length=500, num_return_sequences=1)[0]['generated_text']
     return response.split('\n')[-1].strip()
 
-# Improved function to extract price from offer statement
+
 def extract_price(offer_statement):
     words = offer_statement.split()
     for word in words:
@@ -52,44 +52,44 @@ def extract_price(offer_statement):
                 pass
     return None
 
-# Strategic negotiation logic
+
 def strategic_negotiation(product, original_price, min_price, offer_statement, round):
     offer_price = extract_price(offer_statement)
     
-    # Check for termination phrases
+    
     if "bye" in offer_statement.lower() or "no deal" in offer_statement.lower():
         return "Negotiation ended. Thank you for your time!", True
 
-    # Sentiment analysis
+    
     sentiment_result = sentiment_analyzer(offer_statement)[0]
     sentiment_score = sentiment_result['score'] if sentiment_result['label'] == 'POSITIVE' else -sentiment_result['score']
 
     price_range = original_price - min_price
 
-    # Adjust acceptance threshold based on sentiment and round
+    
     acceptance_threshold = original_price - int(price_range * (0.1 + (round * 0.05) - (sentiment_score * 0.05)))
 
     if offer_price >= acceptance_threshold:
         return f"Excellent! I accept your offer of Rs. {offer_price}. It's a deal!", True
     
     if offer_price < min_price:
-        # Randomly reduce price between 0.01% and 0.1% if the offer is below the minimum price
-        reduction_percentage = random.randint(1, 10) / 10000.0  # 0.01% to 0.1%
+        
+        reduction_percentage = random.randint(1, 10) / 10000.0  
         counter_offer = max(min_price, original_price - int(original_price * reduction_percentage))
         ai_response = generate_ai_response(product, offer_price, original_price, counter_offer)
         return f"{ai_response} How about Rs. {counter_offer} for the {product}?", False
     
-    # After 3 attempts, reject if still below minimum
+    
     if round >= 3 and offer_price < min_price:
         return f"After careful consideration, I must decline your offer of Rs. {offer_price}. Thank you for your time!", True
     
-    # Counter offer logic
+    
     counter_offer = max(min_price, original_price - int(price_range * (0.1 + (round * 0.05) - (sentiment_score * 0.05))))
     ai_response = generate_ai_response(product, offer_price, original_price, counter_offer)
     
     return f"{ai_response} How about Rs. {counter_offer} for the {product}?", False
 
-# Negotiation logic
+
 @app.post("/negotiate")
 async def negotiate(product: str = Form(...), offer_statement: str = Form(...), chat_history: str = Form(...)):
     if product not in products:
@@ -99,10 +99,10 @@ async def negotiate(product: str = Form(...), offer_statement: str = Form(...), 
     original_price = product_data["price"]
     min_price = product_data["min_price"]
 
-    # Extract the negotiation round from chat history
+    
     round = len(chat_history.split("Customer:")) - 1
 
-    # Check for negotiation limit
+    
     if round >= 8:
         return {
             "original_price": original_price,
