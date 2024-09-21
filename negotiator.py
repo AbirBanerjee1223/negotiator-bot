@@ -13,12 +13,12 @@ generator = pipeline('text-generation', model='distilgpt2')
 # Initialize sentiment analysis pipeline
 sentiment_analyzer = pipeline('sentiment-analysis')
 
-# Sample product data for negotiation
+# Sample product data for negotiation with updated prices
 products = {
-    "laptop": {"price": 50000, "min_price": 45000},
-    "smartphone": {"price": 20000, "min_price": 17000},
-    "headphones": {"price": 3000, "min_price": 2500},
-    "tablet": {"price": 25000, "min_price": 23000},
+    "laptop": {"price": 50000, "min_price": 45000},      # Original: 50000, Min: 45000
+    "smartphone": {"price": 30000, "min_price": 25000},  # Original: 30000, Min: 25000
+    "headphones": {"price": 3000, "min_price": 2500},    # Original: 6000, Min: 5000
+    "tablet": {"price": 25000, "min_price": 12000},      # Original: 25000, Min: 22000
 }
 
 # Request body model
@@ -32,13 +32,12 @@ def analyze_sentiment(message):
     analysis = TextBlob(message)
     return analysis.sentiment.polarity
 
-# Function to generate AI response
-def generate_ai_response(product, offer_price, counter_offer):
+# Function to generate AI response using the new prompt
+def generate_ai_response(product_name, offer_price, original_price, counter_offer):
     prompt = f"""
-Negotiation for a {product}. Customer offer: Rs. {offer_price:.2f}. Counter offer: Rs. {counter_offer:.2f}.
-Respond persuasively without mentioning the exact counter offer:
+You are a shopkeeper negotiating the price of a {product_name}. The customer has offered Rs. {offer_price}, but your original price is Rs. {original_price}. Provide a simple reason for why this new price is fair, such as maintaining quality service or covering the product’s costs. Avoid any kind of numbers in the reply. Just provide reasons in 1 line.
 """
-    response = generator(prompt, max_length=100, num_return_sequences=1)[0]['generated_text']
+    response = generator(prompt, max_length=500, num_return_sequences=1)[0]['generated_text']
     return response.split('\n')[-1].strip()
 
 # Improved function to extract price from offer statement
@@ -48,7 +47,7 @@ def extract_price(offer_statement):
         cleaned_word = ''.join(char for char in word if char.isdigit() or char == '.')
         if cleaned_word:
             try:
-                return float(cleaned_word)
+                return int(float(cleaned_word))
             except ValueError:
                 pass
     return None
@@ -68,27 +67,27 @@ def strategic_negotiation(product, original_price, min_price, offer_statement, r
     price_range = original_price - min_price
 
     # Adjust acceptance threshold based on sentiment and round
-    acceptance_threshold = original_price - (price_range * (0.1 + (round * 0.05) - (sentiment_score * 0.05)))
+    acceptance_threshold = original_price - int(price_range * (0.1 + (round * 0.05) - (sentiment_score * 0.05)))
 
     if offer_price >= acceptance_threshold:
-        return f"Excellent! I accept your offer of Rs. {offer_price:.2f}. It's a deal!", True
+        return f"Excellent! I accept your offer of Rs. {offer_price}. It's a deal!", True
     
     if offer_price < min_price:
-        # Generate a counteroffer close to the original price
-        reduction_percentage = random.uniform(0.0001, 0.0003)  # 0.01% to 0.03%
-        counter_offer = original_price * (1 - reduction_percentage)
-        ai_response = generate_ai_response(product, offer_price, counter_offer)
-        return f"{ai_response} How about Rs. {counter_offer:.2f} for the {product}?", False
+        # Randomly reduce price between 0.01% and 0.1% if the offer is below the minimum price
+        reduction_percentage = random.randint(1, 10) / 10000.0  # 0.01% to 0.1%
+        counter_offer = max(min_price, original_price - int(original_price * reduction_percentage))
+        ai_response = generate_ai_response(product, offer_price, original_price, counter_offer)
+        return f"{ai_response} How about Rs. {counter_offer} for the {product}?", False
     
     # After 3 attempts, reject if still below minimum
     if round >= 3 and offer_price < min_price:
-        return f"After careful consideration, I must decline your offer of Rs. {offer_price:.2f}. Thank you for your time!", True
+        return f"After careful consideration, I must decline your offer of Rs. {offer_price}. Thank you for your time!", True
     
     # Counter offer logic
-    counter_offer = max(min_price, original_price - (price_range * (0.1 + (round * 0.05) - (sentiment_score * 0.05))))
-    ai_response = generate_ai_response(product, offer_price, counter_offer)
+    counter_offer = max(min_price, original_price - int(price_range * (0.1 + (round * 0.05) - (sentiment_score * 0.05))))
+    ai_response = generate_ai_response(product, offer_price, original_price, counter_offer)
     
-    return f"{ai_response} How about Rs. {counter_offer:.2f} for the {product}?", False
+    return f"{ai_response} How about Rs. {counter_offer} for the {product}?", False
 
 # Negotiation logic
 @app.post("/negotiate")
@@ -108,7 +107,7 @@ async def negotiate(product: str = Form(...), offer_statement: str = Form(...), 
         return {
             "original_price": original_price,
             "offer_statement": offer_statement,
-            "ai_response": f"After 8 rounds, I must decline any further negotiation. Thank you for your time!",
+            "ai_response": f"As there is no improvement, I must decline any further negotiation. Thank you for your time!",
             "deal_made": True,
             "product": product
         }
@@ -193,10 +192,10 @@ def chat_interface():
 
                 function getOriginalPrice(product) {
                     const prices = {
-                        "laptop": 100000,
-                        "smartphone": 60000,
-                        "headphones": 15000,
-                        "tablet": 40000
+                        "laptop": 50000,
+                        "smartphone": 30000,
+                        "headphones": 3000,
+                        "tablet": 25000
                     };
                     return prices[product] || "N/A";
                 }
@@ -226,11 +225,12 @@ def chat_interface():
                 </div>
                 <label for="offer_statement">Your Offer (with justification):</label>
                 <textarea name="offer_statement" id="offer_statement" required rows="4" cols="50"></textarea><br><br>
-                <input type="submit" value="Submit Offer" id="submitButton">
+                <button type="submit" id="submitButton">Submit Offer</button>
             </form>
         </body>
     </html>
     """
+
 
 if __name__ == "__main__":
     import uvicorn
